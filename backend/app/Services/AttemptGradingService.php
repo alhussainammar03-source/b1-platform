@@ -8,7 +8,7 @@ use App\Models\AttemptAnswer;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
-
+use App\Enums\QuestionType;
 class AttemptGradingService
 {
     public function grade(Attempt $attempt, array $answers): array
@@ -20,7 +20,18 @@ class AttemptGradingService
         $questions = $exercise->questions
             ->where('is_active', true)
             ->keyBy('id');
+        $hasManualGrading = $questions->contains(
+            fn($question) => ! $question->type->isAutoGradable()
+        );
 
+        if ($hasManualGrading) {
+            throw new HttpException(
+                422,
+                'This exercise contains questions that require manual or AI grading.'
+            );
+        } 
+
+        
         $submittedAnswers = collect($answers);
 
         $this->validateQuestions($questions, $submittedAnswers);

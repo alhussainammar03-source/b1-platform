@@ -172,4 +172,96 @@ class AttemptSubmissionTest extends TestCase
             'awarded_points' => 1.00,
         ]);
     }
+
+
+
+    public function test_manual_grading_question_cannot_be_auto_graded(): void
+    {
+        $data = $this->createAttemptTestData();
+
+        $data['question1']->update([
+            'type' => QuestionType::WRITING_TEXT,
+        ]);
+
+        $response = $this
+            ->actingAs($data['user'], 'sanctum')
+            ->postJson("/api/v1/attempts/{$data['attempt']->id}/submit", [
+                'answers' => [
+                    [
+                        'question_id' => $data['question1']->id,
+                        'text_answer' => 'Das ist meine schriftliche Antwort.',
+                    ],
+                ],
+            ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath(
+                'message',
+                'This exercise contains questions that require manual or AI grading.'
+            );
+
+        $this->assertDatabaseHas('attempts', [
+            'id' => $data['attempt']->id,
+            'status' => 'in_progress',
+        ]);
+
+        $this->assertDatabaseMissing('attempt_answers', [
+            'attempt_id' => $data['attempt']->id,
+            'question_id' => $data['question1']->id,
+        ]);
+    }
+    public function test_matching_questions_are_graded_correctly(): void
+    {
+        $data = $this->createAttemptTestData();
+
+        $data['question1']->update([
+            'type' => QuestionType::MATCHING,
+            'prompt' => 'Person 1 sucht einen Deutschkurs am Abend.',
+        ]);
+
+        $data['question2']->update([
+            'type' => QuestionType::MATCHING,
+            'prompt' => 'Person 2 sucht einen Deutschkurs am Wochenende.',
+        ]);
+
+        $response = $this
+            ->actingAs($data['user'], 'sanctum')
+            ->postJson("/api/v1/attempts/{$data['attempt']->id}/submit", [
+                'answers' => [
+                    [
+                        'question_id' => $data['question1']->id,
+                        'answer_option_id' => $data['correctOption1']->id,
+                    ],
+                    [
+                        'question_id' => $data['question2']->id,
+                        'answer_option_id' => $data['correctOption2']->id,
+                    ],
+                ],
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'graded')
+            ->assertJsonPath('data.score', '2.00')
+            ->assertJsonPath('data.max_score', '2.00')
+            ->assertJsonPath('data.percentage', '100.00');
+
+        $this->assertDatabaseHas('attempt_answers', [
+            'attempt_id' => $data['attempt']->id,
+            'question_id' => $data['question1']->id,
+            'answer_option_id' => $data['correctOption1']->id,
+            'is_correct' => true,
+            'awarded_points' => 1.00,
+        ]);
+
+        $this->assertDatabaseHas('attempt_answers', [
+            'attempt_id' => $data['attempt']->id,
+            'question_id' => $data['question2']->id,
+            'answer_option_id' => $data['correctOption2']->id,
+            'is_correct' => true,
+            'awarded_points' => 1.00,
+        ]);
+    }
+
 }
