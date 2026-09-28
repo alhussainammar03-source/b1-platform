@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use App\Enums\QuestionType;
 
 class Question extends Model
 {
@@ -26,6 +26,7 @@ class Question extends Model
     protected function casts(): array
     {
         return [
+            'type' => QuestionType::class,
             'points' => 'decimal:2',
             'meta' => 'array',
             'sort_order' => 'integer',
@@ -50,6 +51,4 @@ class Question extends Model
     {
         return $this->hasMany(AttemptAnswer::class);
     }
-
-
 }
