@@ -263,5 +263,43 @@ class AttemptSubmissionTest extends TestCase
             'awarded_points' => 1.00,
         ]);
     }
+    public function test_gap_fill_question_with_options_is_graded_correctly(): void
+    {
+        $data = $this->createAttemptTestData();
 
+        $data['question1']->update([
+            'type' => QuestionType::GAP_FILL,
+            'prompt' => 'Ich ___ jeden Morgen zur Arbeit.',
+        ]);
+
+        $response = $this
+            ->actingAs($data['user'], 'sanctum')
+            ->postJson("/api/v1/attempts/{$data['attempt']->id}/submit", [
+                'answers' => [
+                    [
+                        'question_id' => $data['question1']->id,
+                        'answer_option_id' => $data['correctOption1']->id,
+                    ],
+                    [
+                        'question_id' => $data['question2']->id,
+                        'answer_option_id' => $data['correctOption2']->id,
+                    ],
+                ],
+            ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'graded')
+            ->assertJsonPath('data.score', '2.00')
+            ->assertJsonPath('data.max_score', '2.00')
+            ->assertJsonPath('data.percentage', '100.00');
+
+        $this->assertDatabaseHas('attempt_answers', [
+            'attempt_id' => $data['attempt']->id,
+            'question_id' => $data['question1']->id,
+            'answer_option_id' => $data['correctOption1']->id,
+            'is_correct' => true,
+            'awarded_points' => 1.00,
+        ]);
+    }
 }
