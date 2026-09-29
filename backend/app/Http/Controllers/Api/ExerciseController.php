@@ -15,7 +15,7 @@ class ExerciseController extends Controller
             ->where('key', $key)
             ->where('status', 'published')
             ->with([
-                'stimuli',
+                'stimuli.mediaFile',
                 'questions.answerOptions',
             ])
             ->first();

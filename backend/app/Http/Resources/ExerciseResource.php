@@ -32,6 +32,13 @@ class ExerciseResource extends JsonResource
                         'label' => $stimulus->label,
                         'content' => $stimulus->content,
                         'media_file_id' => $stimulus->media_file_id,
+
+                        'media' => $stimulus->mediaFile ? [
+                            'id' => $stimulus->mediaFile->id,
+                            'type' => $stimulus->mediaFile->type,
+                            'duration_seconds' => $stimulus->mediaFile->duration_seconds,
+                        ] : null,
+
                         'meta' => $stimulus->meta,
                     ];
                 }),
