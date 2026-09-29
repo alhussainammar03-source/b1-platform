@@ -15,7 +15,7 @@ class ExamPartSeeder extends Seeder
 
         $speaking = ExamSection::where('key', 'speaking')->firstOrFail();
         $reading = ExamSection::where('key', 'reading')->firstOrFail();
-
+        $listening = ExamSection::where('key', 'listening')->firstOrFail();
 
 
 
@@ -236,8 +236,107 @@ class ExamPartSeeder extends Seeder
                 $part
             );
         }
-    
-    
-    
+
+        $listeningParts = [
+            [
+                'key' => 'listening_part_1',
+                'task_kind' => 'multiple_choice',
+                'title' => [
+                    'de' => 'Hören Teil 1',
+                    'ar' => 'الاستماع - الجزء 1',
+                    'en' => 'Listening Part 1',
+                    'tr' => 'Dinleme Bölüm 1',
+                    'uk' => 'Аудіювання, частина 1',
+                ],
+                'label' => [
+                    'de' => 'Teil 1',
+                    'ar' => 'الجزء 1',
+                    'en' => 'Part 1',
+                    'tr' => 'Bölüm 1',
+                    'uk' => 'Частина 1',
+                ],
+                'default_prep_seconds' => null,
+                'default_speak_seconds' => null,
+                'sort_order' => 1,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'listening_part_2',
+                'task_kind' => 'multiple_choice',
+                'title' => [
+                    'de' => 'Hören Teil 2',
+                    'ar' => 'الاستماع - الجزء 2',
+                    'en' => 'Listening Part 2',
+                    'tr' => 'Dinleme Bölüm 2',
+                    'uk' => 'Аудіювання, частина 2',
+                ],
+                'label' => [
+                    'de' => 'Teil 2',
+                    'ar' => 'الجزء 2',
+                    'en' => 'Part 2',
+                    'tr' => 'Bölüm 2',
+                    'uk' => 'Частина 2',
+                ],
+                'default_prep_seconds' => null,
+                'default_speak_seconds' => null,
+                'sort_order' => 2,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'listening_part_3',
+                'task_kind' => 'mixed',
+                'title' => [
+                    'de' => 'Hören Teil 3',
+                    'ar' => 'الاستماع - الجزء 3',
+                    'en' => 'Listening Part 3',
+                    'tr' => 'Dinleme Bölüm 3',
+                    'uk' => 'Аудіювання, частина 3',
+                ],
+                'label' => [
+                    'de' => 'Teil 3',
+                    'ar' => 'الجزء 3',
+                    'en' => 'Part 3',
+                    'tr' => 'Bölüm 3',
+                    'uk' => 'Частина 3',
+                ],
+                'default_prep_seconds' => null,
+                'default_speak_seconds' => null,
+                'sort_order' => 3,
+                'is_active' => true,
+            ],
+            [
+                'key' => 'listening_part_4',
+                'task_kind' => 'matching',
+                'title' => [
+                    'de' => 'Hören Teil 4',
+                    'ar' => 'الاستماع - الجزء 4',
+                    'en' => 'Listening Part 4',
+                    'tr' => 'Dinleme Bölüm 4',
+                    'uk' => 'Аудіювання, частина 4',
+                ],
+                'label' => [
+                    'de' => 'Teil 4',
+                    'ar' => 'الجزء 4',
+                    'en' => 'Part 4',
+                    'tr' => 'Bölüm 4',
+                    'uk' => 'Частина 4',
+                ],
+                'default_prep_seconds' => null,
+                'default_speak_seconds' => null,
+                'sort_order' => 4,
+                'is_active' => true,
+            ],
+        ];
+
+        foreach ($listeningParts as $part) {
+            ExamPart::updateOrCreate(
+                [
+                    'exam_format_id' => $dtz->id,
+                    'exam_section_id' => $listening->id,
+                    'key' => $part['key'],
+                ],
+                $part
+            );
         }
+    }
 }
