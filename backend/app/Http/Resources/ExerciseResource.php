@@ -33,11 +33,14 @@ class ExerciseResource extends JsonResource
                         'content' => $stimulus->content,
                         'media_file_id' => $stimulus->media_file_id,
 
-                        'media' => $stimulus->mediaFile ? [
-                            'id' => $stimulus->mediaFile->id,
-                            'type' => $stimulus->mediaFile->type,
-                            'duration_seconds' => $stimulus->mediaFile->duration_seconds,
-                        ] : null,
+                    'media' => $stimulus->mediaFile ? [
+                        'id' => $stimulus->mediaFile->id,
+                        'type' => $stimulus->mediaFile->type,
+                        'duration_seconds' => $stimulus->mediaFile->duration_seconds,
+                        'url' => route('api.v1.media.audio', [
+                            'media' => $stimulus->mediaFile->id,
+                        ]),
+                    ] : null,
 
                         'meta' => $stimulus->meta,
                     ];

@@ -65,7 +65,8 @@ class DtzListeningPart1Seeder extends Seeder
                     'audio' => [
                         'path' => 'audio/dtz/listening/part1/ansage-1.mp3',
                         'original_name' => 'ansage-1.mp3',
-                        'duration_seconds' => 18,
+                        'size' => 180905,
+                        'duration_seconds' => 10,
                         'label' => 'Ansage 1',
                     ],
                     'transcript' => 'Achtung, liebe Fahrgäste. Der Regionalzug nach Dortmund fährt heute nicht von Gleis 4, sondern von Gleis 7. Die Abfahrt ist um 10 Uhr 25.',
@@ -80,7 +81,8 @@ class DtzListeningPart1Seeder extends Seeder
                     'audio' => [
                         'path' => 'audio/dtz/listening/part1/ansage-2.mp3',
                         'original_name' => 'ansage-2.mp3',
-                        'duration_seconds' => 17,
+                        'size' => 177144,
+                        'duration_seconds' => 10,
                         'label' => 'Ansage 2',
                     ],
                     'transcript' => 'Guten Tag. Hier ist die Praxis Dr. Berger. Ihr Termin morgen muss leider verschoben werden. Bitte kommen Sie nicht um neun Uhr, sondern um elf Uhr dreißig.',
@@ -95,7 +97,8 @@ class DtzListeningPart1Seeder extends Seeder
                     'audio' => [
                         'path' => 'audio/dtz/listening/part1/ansage-3.mp3',
                         'original_name' => 'ansage-3.mp3',
-                        'duration_seconds' => 19,
+                        'size' => 178398,
+                        'duration_seconds' => 10,
                         'label' => 'Ansage 3',
                     ],
                     'transcript' => 'Liebe Kundinnen und Kunden, unser Supermarkt schließt heute wegen technischer Arbeiten bereits um 18 Uhr. Morgen sind wir wieder wie gewohnt ab 8 Uhr für Sie da.',
@@ -110,7 +113,8 @@ class DtzListeningPart1Seeder extends Seeder
                     'audio' => [
                         'path' => 'audio/dtz/listening/part1/ansage-4.mp3',
                         'original_name' => 'ansage-4.mp3',
-                        'duration_seconds' => 20,
+                        'size' => 208073,
+                        'duration_seconds' => 11,
                         'label' => 'Ansage 4',
                     ],
                     'transcript' => 'Hallo Frau Yilmaz, hier ist Herr König von der Sprachschule. Der Deutschkurs beginnt nächste Woche nicht am Montag, sondern erst am Mittwoch. Der Unterricht beginnt wie geplant um 17 Uhr.',
@@ -126,13 +130,14 @@ class DtzListeningPart1Seeder extends Seeder
             foreach ($tasks as $index => $task) {
                 $media = MediaFile::updateOrCreate(
                     [
-                        'disk' => 'public',
                         'path' => $task['audio']['path'],
                     ],
                     [
+                        'disk' => 'local',
                         'type' => 'audio',
                         'original_name' => $task['audio']['original_name'],
                         'mime_type' => 'audio/mpeg',
+                        'size' => $task['audio']['size'],
                         'duration_seconds' => $task['audio']['duration_seconds'],
                         'source' => 'Codelva original',
                         'license' => 'proprietary',
