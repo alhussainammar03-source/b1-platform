@@ -16,7 +16,7 @@ class ExamPartSeeder extends Seeder
         $speaking = ExamSection::where('key', 'speaking')->firstOrFail();
         $reading = ExamSection::where('key', 'reading')->firstOrFail();
         $listening = ExamSection::where('key', 'listening')->firstOrFail();
-
+        $writing = ExamSection::where('key', 'writing')->firstOrFail();
 
 
 
@@ -338,5 +338,57 @@ class ExamPartSeeder extends Seeder
                 $part
             );
         }
+
+
+
+        $writingParts = [
+            [
+                'key' => 'writing_task',
+                'task_kind' => 'writing_text',
+
+                'title' => [
+                    'de' => 'Schreiben',
+                    'ar' => 'الكتابة',
+                    'en' => 'Writing',
+                    'tr' => 'Yazma',
+                    'uk' => 'Письмо',
+                ],
+
+                'label' => [
+                    'de' => 'Schreiben',
+                    'ar' => 'الكتابة',
+                    'en' => 'Writing',
+                    'tr' => 'Yazma',
+                    'uk' => 'Письмо',
+                ],
+
+                'default_prep_seconds' => null,
+                'default_speak_seconds' => null,
+                'sort_order' => 1,
+                'is_active' => true,
+            ],
+        ];
+
+        foreach ($writingParts as $part) {
+            ExamPart::updateOrCreate(
+                [
+                    'exam_format_id' => $dtz->id,
+                    'exam_section_id' => $writing->id,
+                    'key' => $part['key'],
+                ],
+                $part
+            );
+        }
     }
-}
+
+
+
+
+    }
+
+
+
+
+
+
+

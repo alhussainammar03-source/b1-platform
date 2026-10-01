@@ -7,6 +7,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AttemptController;
 use App\Http\Controllers\Api\AttemptSubmissionController;
 use App\Http\Controllers\Api\MediaController;
+use App\Http\Controllers\Api\WritingSubmissionController;
+
+
 
 Route::prefix('v1')->group(function () {
 
@@ -31,6 +34,16 @@ Route::prefix('v1')->group(function () {
             '/media/{media}/audio',
             [MediaController::class, 'audio']
         )->name('api.v1.media.audio');
+
+        Route::post(
+            '/writing/submissions',
+            [WritingSubmissionController::class, 'store']
+        );
+
+        Route::patch(
+            '/writing/submissions/{submission}/confirm',
+            [WritingSubmissionController::class, 'confirm']
+        );
     });
 
 
