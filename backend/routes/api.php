@@ -44,6 +44,11 @@ Route::prefix('v1')->group(function () {
             '/writing/submissions/{submission}/confirm',
             [WritingSubmissionController::class, 'confirm']
         );
+
+        Route::post(
+            '/writing/submissions/{submission}/evaluate',
+            [WritingSubmissionController::class, 'evaluate']
+        );
     });
 
 

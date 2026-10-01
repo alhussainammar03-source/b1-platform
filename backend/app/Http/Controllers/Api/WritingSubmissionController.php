@@ -9,7 +9,9 @@ use App\Models\WritingSubmission;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Http\Requests\Writing\ConfirmWritingSubmissionRequest;
-
+use App\Http\Requests\EvaluateWritingSubmissionRequest;
+use App\Jobs\EvaluateWritingJob;
+use App\Models\WritingEvaluation;
 
 class WritingSubmissionController extends Controller
 {
@@ -124,5 +126,47 @@ class WritingSubmissionController extends Controller
                 'confirmed_at' => $submission->confirmed_at,
             ],
         ]);
+    }
+
+
+    public function evaluate(
+        EvaluateWritingSubmissionRequest $request,
+        WritingSubmission $submission
+    ): JsonResponse {
+        if ($submission->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Sie dürfen diese Schreibantwort nicht bewerten.',
+            ], 403);
+        }
+
+        if ($submission->status !== 'ready_for_evaluation') {
+            return response()->json([
+                'message' => 'Diese Schreibantwort ist noch nicht bereit für die Bewertung.',
+            ], 422);
+        }
+
+        $submission->loadMissing('user.language');
+
+        $feedbackLanguage = $request->validated('feedback_language')
+            ?? $submission->user?->language?->code
+            ?? 'de';
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => $feedbackLanguage,
+            'status' => 'pending',
+        ]);
+
+        EvaluateWritingJob::dispatch($evaluation->id);
+
+        return response()->json([
+            'message' => 'Die KI-Bewertung wurde gestartet.',
+            'data' => [
+                'id' => $evaluation->id,
+                'writing_submission_id' => $submission->id,
+                'feedback_language' => $evaluation->feedback_language,
+                'status' => $evaluation->status,
+            ],
+        ], 202);
     }
 }
