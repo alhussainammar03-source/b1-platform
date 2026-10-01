@@ -140,23 +140,62 @@ class WritingSubmissionController extends Controller
             ], 403);
         }
 
-        if ($submission->status !== 'ready_for_evaluation') {
+        $feedbackLanguage = $request->validated('feedback_language');
+
+        $result = DB::transaction(function () use (
+            $submission,
+            $request,
+            $feedbackLanguage
+        ) {
+            $lockedSubmission = WritingSubmission::query()
+                ->with('user.language')
+                ->lockForUpdate()
+                ->findOrFail($submission->id);
+
+            if ($lockedSubmission->user_id !== $request->user()->id) {
+                return [
+                    'error' => true,
+                    'status' => 403,
+                    'message' => 'Sie dürfen diese Schreibantwort nicht bewerten.',
+                ];
+            }
+
+            if ($lockedSubmission->status !== 'ready_for_evaluation') {
+                return [
+                    'error' => true,
+                    'status' => 422,
+                    'message' => 'Diese Schreibantwort ist noch nicht bereit für die Bewertung.',
+                ];
+            }
+
+            $language = $feedbackLanguage
+                ?? $lockedSubmission->user?->language?->code
+                ?? 'de';
+
+            $lockedSubmission->update([
+                'status' => 'evaluating',
+            ]);
+
+            $evaluation = WritingEvaluation::create([
+                'writing_submission_id' => $lockedSubmission->id,
+                'feedback_language' => $language,
+                'status' => 'pending',
+            ]);
+
+            return [
+                'error' => false,
+                'evaluation' => $evaluation,
+            ];
+        });
+
+        if ($result['error']) {
             return response()->json([
-                'message' => 'Diese Schreibantwort ist noch nicht bereit für die Bewertung.',
-            ], 422);
+                'message' => $result['message'],
+            ], $result['status']);
         }
 
-        $submission->loadMissing('user.language');
-
-        $feedbackLanguage = $request->validated('feedback_language')
-            ?? $submission->user?->language?->code
-            ?? 'de';
-
-        $evaluation = WritingEvaluation::create([
-            'writing_submission_id' => $submission->id,
-            'feedback_language' => $feedbackLanguage,
-            'status' => 'pending',
-        ]);
+        /** @var WritingEvaluation $evaluation */
+        $evaluation = $result['evaluation'];
 
         EvaluateWritingJob::dispatch($evaluation->id);
 
@@ -164,7 +203,7 @@ class WritingSubmissionController extends Controller
             'message' => 'Die KI-Bewertung wurde gestartet.',
             'data' => [
                 'id' => $evaluation->id,
-                'writing_submission_id' => $submission->id,
+                'writing_submission_id' => $evaluation->writing_submission_id,
                 'feedback_language' => $evaluation->feedback_language,
                 'status' => $evaluation->status,
             ],

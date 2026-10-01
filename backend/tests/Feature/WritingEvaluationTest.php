@@ -17,6 +17,10 @@ use Tests\TestCase;
 use App\Models\WritingEvaluation;
 use App\Services\Writing\WritingEvaluationService;
 use Tests\Fakes\FakeWritingEvaluationService;
+use RuntimeException;
+use Tests\Fakes\FailingWritingEvaluationService;
+
+
 
 class WritingEvaluationTest extends TestCase
 {
@@ -621,5 +625,108 @@ class WritingEvaluationTest extends TestCase
             ->getJson("/api/v1/writing/evaluations/{$evaluation->id}");
 
         $response->assertForbidden();
+    }
+    public function test_user_cannot_start_duplicate_evaluation_while_one_is_running(): void
+    {
+        Queue::fake();
+
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission($user);
+
+        $firstResponse = $this
+            ->actingAs($user)
+            ->postJson("/api/v1/writing/submissions/{$submission->id}/evaluate");
+
+        $firstResponse->assertAccepted();
+
+        $submission->refresh();
+
+        $this->assertSame('evaluating', $submission->status);
+
+        $secondResponse = $this
+            ->actingAs($user)
+            ->postJson("/api/v1/writing/submissions/{$submission->id}/evaluate");
+
+        $secondResponse->assertUnprocessable();
+
+        $this->assertDatabaseCount('writing_evaluations', 1);
+
+        Queue::assertPushed(EvaluateWritingJob::class, 1);
+    }
+
+    public function test_failed_evaluation_marks_evaluation_and_submission_as_failed(): void
+    {
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission($user);
+
+        $submission->update([
+            'status' => 'evaluating',
+        ]);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'de',
+            'status' => 'pending',
+        ]);
+
+        $job = new EvaluateWritingJob($evaluation->id);
+
+        $exception = new RuntimeException(
+            'Fake AI evaluation failure.'
+        );
+
+        $job->failed($exception);
+
+        $evaluation->refresh();
+        $submission->refresh();
+
+        $this->assertSame('failed', $evaluation->status);
+        $this->assertSame('failed', $submission->status);
+    }
+    public function test_evaluation_job_rethrows_ai_failure_for_retry(): void
+    {
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission($user);
+
+        $submission->update([
+            'status' => 'evaluating',
+        ]);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'de',
+            'status' => 'pending',
+        ]);
+
+        $this->app->bind(
+            WritingEvaluationService::class,
+            FailingWritingEvaluationService::class
+        );
+
+        $job = new EvaluateWritingJob($evaluation->id);
+
+        try {
+            $job->handle(
+                $this->app->make(WritingEvaluationService::class)
+            );
+
+            $this->fail('Expected AI evaluation exception was not thrown.');
+        } catch (RuntimeException $exception) {
+            $this->assertSame(
+                'Fake AI evaluation failure.',
+                $exception->getMessage()
+            );
+        }
+
+        $evaluation->refresh();
+        $submission->refresh();
+
+        $this->assertSame('evaluating', $evaluation->status);
+        // Noch nicht endgültig fehlgeschlagen:
+        // Laravel kann den Job erneut versuchen.
+        $this->assertSame('evaluating', $submission->status);
     }
 }

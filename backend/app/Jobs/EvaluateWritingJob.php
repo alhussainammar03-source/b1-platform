@@ -58,15 +58,41 @@ class EvaluateWritingJob implements ShouldQueue
                 'status' => 'evaluated',
                 'evaluated_at' => now(),
             ]);
-        } catch (Throwable $exception) {
-            $evaluation->update([
-                'status' => 'failed',
-                'meta' => [
-                    'error' => $exception->getMessage(),
-                ],
-            ]);
+        }  catch (Throwable $exception) {
+    $evaluation->update([
+        'status' => 'evaluating',
+        'meta' => [
+            'error' => $exception->getMessage(),
+        ],
+    ]);
 
-            throw $exception;
+    throw $exception;
+}
+    }
+
+
+
+    public function failed(Throwable $exception): void
+    {
+        $evaluation = WritingEvaluation::with('submission')
+            ->find($this->evaluationId);
+
+        if (! $evaluation) {
+            return;
+        }
+
+        $evaluation->update([
+            'status' => 'failed',
+            'meta' => [
+                'error' => $exception->getMessage(),
+            ],
+        ]);
+
+        if ($evaluation->submission) {
+            $evaluation->submission->update([
+                'status' => 'failed',
+            ]);
         }
     }
+
 }
