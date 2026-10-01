@@ -12,6 +12,7 @@ use App\Http\Requests\Writing\ConfirmWritingSubmissionRequest;
 use App\Http\Requests\EvaluateWritingSubmissionRequest;
 use App\Jobs\EvaluateWritingJob;
 use App\Models\WritingEvaluation;
+use Illuminate\Http\Request;
 
 class WritingSubmissionController extends Controller
 {
@@ -168,5 +169,37 @@ class WritingSubmissionController extends Controller
                 'status' => $evaluation->status,
             ],
         ], 202);
+    }
+
+
+    public function showEvaluation(
+        Request $request,
+        WritingEvaluation $evaluation
+    ): JsonResponse {
+        $evaluation->loadMissing('submission');
+
+        if ($evaluation->submission->user_id !== $request->user()->id) {
+            return response()->json([
+                'message' => 'Sie dürfen diese Bewertung nicht ansehen.',
+            ], 403);
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $evaluation->id,
+                'writing_submission_id' => $evaluation->writing_submission_id,
+                'feedback_language' => $evaluation->feedback_language,
+                'status' => $evaluation->status,
+                'criteria' => $evaluation->criteria,
+                'corrected_text' => $evaluation->corrected_text,
+                'improved_example' => $evaluation->improved_example,
+                'feedback_de' => $evaluation->feedback_de,
+                'feedback_translated' => $evaluation->feedback_translated,
+                'errors' => $evaluation->errors,
+                'missing_required_points' => $evaluation->missing_required_points,
+                'focus_points' => $evaluation->focus_points,
+                'evaluated_at' => $evaluation->evaluated_at?->toISOString(),
+            ],
+        ]);
     }
 }

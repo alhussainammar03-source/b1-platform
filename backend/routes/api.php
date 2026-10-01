@@ -48,6 +48,13 @@ Route::prefix('v1')->group(function () {
         Route::post(
             '/writing/submissions/{submission}/evaluate',
             [WritingSubmissionController::class, 'evaluate']
+
+        );
+
+
+        Route::get(
+            '/writing/evaluations/{evaluation}',
+            [WritingSubmissionController::class, 'showEvaluation']
         );
     });
 

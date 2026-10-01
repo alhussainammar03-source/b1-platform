@@ -555,4 +555,71 @@ class WritingEvaluationTest extends TestCase
             $evaluation->focus_points[0]['text_translated']
         );
     }
+
+
+
+    public function test_user_can_view_own_writing_evaluation(): void
+    {
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission($user);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'ar',
+            'status' => 'evaluated',
+            'corrected_text' => 'Korrigierter Text',
+            'improved_example' => 'Verbessertes Beispiel',
+            'feedback_de' => 'Deutsches Feedback',
+            'feedback_translated' => 'ملاحظات بالعربية',
+            'criteria' => [
+                'grammar' => [
+                    'feedback_de' => 'Die Grammatik ist gut.',
+                    'feedback_translated' => 'القواعد جيدة.',
+                ],
+            ],
+            'errors' => [],
+            'missing_required_points' => [],
+            'focus_points' => [],
+            'evaluated_at' => now(),
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->getJson("/api/v1/writing/evaluations/{$evaluation->id}");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.id', $evaluation->id)
+            ->assertJsonPath('data.writing_submission_id', $submission->id)
+            ->assertJsonPath('data.feedback_language', 'ar')
+            ->assertJsonPath('data.status', 'evaluated')
+            ->assertJsonPath('data.corrected_text', 'Korrigierter Text')
+            ->assertJsonPath('data.feedback_de', 'Deutsches Feedback')
+            ->assertJsonPath('data.feedback_translated', 'ملاحظات بالعربية')
+            ->assertJsonPath(
+                'data.criteria.grammar.feedback_translated',
+                'القواعد جيدة.'
+            );
+    }
+
+    public function test_user_cannot_view_another_users_writing_evaluation(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $submission = $this->createWritingSubmission($owner);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'de',
+            'status' => 'evaluated',
+        ]);
+
+        $response = $this
+            ->actingAs($otherUser)
+            ->getJson("/api/v1/writing/evaluations/{$evaluation->id}");
+
+        $response->assertForbidden();
+    }
 }
