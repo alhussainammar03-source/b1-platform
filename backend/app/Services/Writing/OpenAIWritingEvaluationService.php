@@ -14,7 +14,7 @@ class OpenAIWritingEvaluationService implements WritingEvaluationService
         WritingEvaluation $evaluation
     ): array {
         if (
-            $submission->status !== 'ready_for_evaluation' ||
+            $submission->status !== 'evaluating' ||
             ! $submission->confirmed_text
         ) {
             throw new RuntimeException(

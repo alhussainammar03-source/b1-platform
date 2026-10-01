@@ -13,6 +13,7 @@ use App\Http\Requests\EvaluateWritingSubmissionRequest;
 use App\Jobs\EvaluateWritingJob;
 use App\Models\WritingEvaluation;
 use Illuminate\Http\Request;
+use App\Jobs\ExtractHandwritingJob;
 
 class WritingSubmissionController extends Controller
 {
@@ -68,7 +69,9 @@ class WritingSubmissionController extends Controller
 
             return WritingSubmission::create($data);
         });
-
+        if ($submission->input_method === 'handwritten_image') {
+            ExtractHandwritingJob::dispatch($submission->id);
+        }
         return response()->json([
             'message' => 'Schreibantwort wurde gespeichert.',
             'data' => [

@@ -19,7 +19,7 @@ use App\Services\Writing\WritingEvaluationService;
 use Tests\Fakes\FakeWritingEvaluationService;
 use RuntimeException;
 use Tests\Fakes\FailingWritingEvaluationService;
-
+use App\Services\Writing\OpenAIWritingEvaluationService;
 
 
 class WritingEvaluationTest extends TestCase
@@ -728,5 +728,61 @@ class WritingEvaluationTest extends TestCase
         // Noch nicht endgültig fehlgeschlagen:
         // Laravel kann den Job erneut versuchen.
         $this->assertSame('evaluating', $submission->status);
+    }
+    public function test_openai_service_rejects_submission_that_is_not_evaluating(): void
+    {
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission(
+            $user,
+            'ready_for_evaluation'
+        );
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'de',
+            'status' => 'pending',
+        ]);
+
+        $service = new OpenAIWritingEvaluationService();
+
+        $this->expectException(RuntimeException::class);
+
+        $service->evaluate($submission, $evaluation);
+    }
+    public function test_openai_service_accepts_evaluating_submission_state(): void
+    {
+        config([
+            'services.openai.api_key' => null,
+        ]);
+
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission(
+            $user,
+            'ready_for_evaluation'
+        );
+
+        $submission->update([
+            'status' => 'evaluating',
+        ]);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'de',
+            'status' => 'pending',
+        ]);
+
+        $service = new OpenAIWritingEvaluationService();
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage(
+            'OpenAI API key is not configured.'
+        );
+
+        $service->evaluate(
+            $submission->fresh(),
+            $evaluation
+        );
     }
 }
