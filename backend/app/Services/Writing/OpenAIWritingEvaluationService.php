@@ -139,6 +139,7 @@ PROMPT;
             ->retry(2, 1000)
             ->post('https://api.openai.com/v1/responses', [
                 'model' => $model,
+
                 'input' => [
                     [
                         'role' => 'user',
@@ -148,6 +149,15 @@ PROMPT;
                                 'text' => $prompt,
                             ],
                         ],
+                    ],
+                ],
+
+                'text' => [
+                    'format' => [
+                        'type' => 'json_schema',
+                        'name' => 'writing_evaluation',
+                        'strict' => true,
+                        'schema' => $this->evaluationSchema(),
                     ],
                 ],
             ]);
@@ -264,5 +274,135 @@ PROMPT;
                 );
             }
         }
+    }
+
+    private function evaluationSchema(): array
+    {
+        $bilingualFeedback = [
+            'type' => 'object',
+            'properties' => [
+                'feedback_de' => [
+                    'type' => 'string',
+                ],
+                'feedback_translated' => [
+                    'type' => 'string',
+                ],
+            ],
+            'required' => [
+                'feedback_de',
+                'feedback_translated',
+            ],
+            'additionalProperties' => false,
+        ];
+
+        return [
+            'type' => 'object',
+
+            'properties' => [
+                'criteria' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'task_completion' => $bilingualFeedback,
+                        'grammar' => $bilingualFeedback,
+                        'spelling' => $bilingualFeedback,
+                        'vocabulary' => $bilingualFeedback,
+                        'organization' => $bilingualFeedback,
+                    ],
+                    'required' => [
+                        'task_completion',
+                        'grammar',
+                        'spelling',
+                        'vocabulary',
+                        'organization',
+                    ],
+                    'additionalProperties' => false,
+                ],
+
+                'corrected_text' => [
+                    'type' => 'string',
+                ],
+
+                'improved_example' => [
+                    'type' => 'string',
+                ],
+
+                'feedback_de' => [
+                    'type' => 'string',
+                ],
+
+                'feedback_translated' => [
+                    'type' => 'string',
+                ],
+
+                'errors' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'original' => ['type' => 'string'],
+                            'correction' => ['type' => 'string'],
+                            'category' => ['type' => 'string'],
+                            'explanation_de' => ['type' => 'string'],
+                            'explanation_translated' => [
+                                'type' => 'string',
+                            ],
+                        ],
+                        'required' => [
+                            'original',
+                            'correction',
+                            'category',
+                            'explanation_de',
+                            'explanation_translated',
+                        ],
+                        'additionalProperties' => false,
+                    ],
+                ],
+
+                'missing_required_points' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'point_de' => ['type' => 'string'],
+                            'point_translated' => ['type' => 'string'],
+                        ],
+                        'required' => [
+                            'point_de',
+                            'point_translated',
+                        ],
+                        'additionalProperties' => false,
+                    ],
+                ],
+
+                'focus_points' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'text_de' => ['type' => 'string'],
+                            'text_translated' => ['type' => 'string'],
+                        ],
+                        'required' => [
+                            'text_de',
+                            'text_translated',
+                        ],
+                        'additionalProperties' => false,
+                    ],
+                ],
+            ],
+
+            'required' => [
+                'criteria',
+                'corrected_text',
+                'improved_example',
+                'feedback_de',
+                'feedback_translated',
+                'errors',
+                'missing_required_points',
+                'focus_points',
+            ],
+
+            'additionalProperties' => false,
+        ];
     }
 }

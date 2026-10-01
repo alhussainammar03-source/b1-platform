@@ -20,7 +20,7 @@ use Tests\Fakes\FakeWritingEvaluationService;
 use RuntimeException;
 use Tests\Fakes\FailingWritingEvaluationService;
 use App\Services\Writing\OpenAIWritingEvaluationService;
-
+use Illuminate\Support\Facades\Http;
 
 class WritingEvaluationTest extends TestCase
 {
@@ -784,5 +784,95 @@ class WritingEvaluationTest extends TestCase
             $submission->fresh(),
             $evaluation
         );
+    }
+
+
+    public function test_openai_service_sends_strict_structured_output_schema(): void
+    {
+        Http::fake([
+            'https://api.openai.com/v1/responses' => Http::response([
+                'output' => [
+                    [
+                        'content' => [
+                            [
+                                'type' => 'output_text',
+                                'text' => json_encode([
+                                    'criteria' => [
+                                        'task_completion' => [
+                                            'feedback_de' => 'Gut.',
+                                            'feedback_translated' => 'جيد.',
+                                        ],
+                                        'grammar' => [
+                                            'feedback_de' => 'Gut.',
+                                            'feedback_translated' => 'جيد.',
+                                        ],
+                                        'spelling' => [
+                                            'feedback_de' => 'Gut.',
+                                            'feedback_translated' => 'جيد.',
+                                        ],
+                                        'vocabulary' => [
+                                            'feedback_de' => 'Gut.',
+                                            'feedback_translated' => 'جيد.',
+                                        ],
+                                        'organization' => [
+                                            'feedback_de' => 'Gut.',
+                                            'feedback_translated' => 'جيد.',
+                                        ],
+                                    ],
+                                    'corrected_text' => 'Korrigierter Text.',
+                                    'improved_example' => 'Verbessertes Beispiel.',
+                                    'feedback_de' => 'Gut.',
+                                    'feedback_translated' => 'جيد.',
+                                    'errors' => [],
+                                    'missing_required_points' => [],
+                                    'focus_points' => [],
+                                ]),
+                            ],
+                        ],
+                    ],
+                ],
+            ], 200),
+        ]);
+
+        config([
+            'services.openai.api_key' => 'test-api-key',
+            'services.openai.model' => 'test-model',
+        ]);
+
+        $user = User::factory()->create();
+
+        $submission = $this->createWritingSubmission(
+            $user,
+            'ready_for_evaluation'
+        );
+
+        $submission->update([
+            'status' => 'evaluating',
+        ]);
+
+        $evaluation = WritingEvaluation::create([
+            'writing_submission_id' => $submission->id,
+            'feedback_language' => 'ar',
+            'status' => 'pending',
+        ]);
+
+        $service = new OpenAIWritingEvaluationService();
+
+        $service->evaluate(
+            $submission->fresh(),
+            $evaluation
+        );
+
+        Http::assertSent(function ($request) {
+            return $request->url() ===
+                'https://api.openai.com/v1/responses'
+                && $request['text']['format']['type'] === 'json_schema'
+                && $request['text']['format']['name'] ===
+                'writing_evaluation'
+                && $request['text']['format']['strict'] === true
+                && $request['text']['format']['schema']['type'] ===
+                'object'
+                && $request['text']['format']['schema']['additionalProperties'] === false;
+        });
     }
 }
