@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use App\Services\Writing\HandwritingExtractionService;
-use App\Services\Writing\FakeHandwritingExtractionService;
+use App\Services\Writing\OpenAIHandwritingExtractionService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,7 +15,7 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             HandwritingExtractionService::class,
-            FakeHandwritingExtractionService::class
+            OpenAIHandwritingExtractionService::class
         );
     }
 
