@@ -1,5 +1,33 @@
 import { apiClient } from './client';
 
+
+export type ExerciseListPart = {
+  id: number;
+  key: string;
+  title: string;
+  sort_order: number;
+};
+
+export type ExerciseListItem = {
+  id: number;
+  key: string;
+  type: string;
+  title: string;
+  description: string | null;
+  difficulty: string | null;
+  access_level: string;
+  sort_order: number;
+  section: {
+    key: string;
+  } | null;
+  part: ExerciseListPart | null;
+};
+
+type ExerciseListResponse = {
+  data: ExerciseListItem[];
+};
+
+
 export type ExerciseOption = {
   id: number;
   text: string;
@@ -44,6 +72,19 @@ type ExerciseResponse = {
 export async function getExercise(key: string): Promise<Exercise> {
   const response = await apiClient.get<ExerciseResponse>(
     `/exercises/${key}`,
+  );
+
+  return response.data.data;
+}
+
+export async function getExercises(
+  section?: string,
+): Promise<ExerciseListItem[]> {
+  const response = await apiClient.get<ExerciseListResponse>(
+    '/exercises',
+    {
+      params: section ? { section } : undefined,
+    },
   );
 
   return response.data.data;

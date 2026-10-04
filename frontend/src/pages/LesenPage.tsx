@@ -1,27 +1,104 @@
+import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+
 import {
   getExercise,
+  getExercises,
   startAttempt,
   submitAttempt,
   type AttemptResult,
 } from '../lib/api/exercises';
+
 import GermanContent from '../components/GermanContent';
 
 export default function LesenPage() {
+  const { i18n } = useTranslation();
+
+  const locale =
+    i18n.resolvedLanguage ?? i18n.language ?? 'de';
+
+  const [selectedExerciseKey, setSelectedExerciseKey] =
+    useState<string | null>(null);
+
   const [selectedAnswers, setSelectedAnswers] = useState<
     Record<number, number>
   >({});
 
-  const [result, setResult] = useState<AttemptResult | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [result, setResult] =
+    useState<AttemptResult | null>(null);
 
-  const exerciseQuery = useQuery({
-    queryKey: ['exercise', 'dtz-reading-part-1-001'],
-    queryFn: () => getExercise('dtz-reading-part-1-001'),
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [submitError, setSubmitError] =
+    useState<string | null>(null);
+
+  const exercisesQuery = useQuery({
+    queryKey: ['exercises', 'reading', locale],
+    queryFn: () => getExercises('reading'),
   });
 
+  const exerciseQuery = useQuery({
+    queryKey: ['exercise', selectedExerciseKey, locale],
+    queryFn: () => getExercise(selectedExerciseKey!),
+    enabled: selectedExerciseKey !== null,
+  });
+
+  
+  if (exercisesQuery.isPending) {
+    return (
+      <main className="home-page">
+        <p>Aufgaben werden geladen...</p>
+      </main>
+    );
+  }
+
+  if (exercisesQuery.isError) {
+    return (
+      <main className="home-page">
+        <h1>Lesen</h1>
+        <p>Die Aufgaben konnten nicht geladen werden.</p>
+      </main>
+    );
+  }
+
+  if (!selectedExerciseKey) {
+    return (
+      <main className="home-page">
+        <section className="hero">
+          <p className="eyebrow">DTZ · LESEN</p>
+          <h1>Lesen üben</h1>
+          <p>Wählen Sie einen Teil aus.</p>
+        </section>
+
+        <section className="reading-exercise-list">
+          {exercisesQuery.data.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className="reading-exercise-card"
+              onClick={() => {
+                setSelectedAnswers({});
+                setResult(null);
+                setSubmitError(null);
+                setSelectedExerciseKey(item.key);
+              }}
+            >
+              <strong>
+                {item.part?.title ?? item.title}
+              </strong>
+
+              <span>{item.title}</span>
+
+              {item.description && (
+                <span>{item.description}</span>
+              )}
+            </button>
+          ))}
+        </section>
+      </main>
+    );
+  }
   if (exerciseQuery.isPending) {
     return (
       <main className="home-page">
@@ -228,4 +305,6 @@ export default function LesenPage() {
       </GermanContent>
     </main>
   );
+  
 }
+

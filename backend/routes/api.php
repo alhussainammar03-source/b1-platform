@@ -60,6 +60,6 @@ Route::prefix('v1')->group(function () {
 
 
     Route::get('/languages', [LanguageController::class, 'index']);
-
+    Route::get('/exercises', [ExerciseController::class, 'index']);
     Route::get('/exercises/{key}', [ExerciseController::class, 'show']);
 });
