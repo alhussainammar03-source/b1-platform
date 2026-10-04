@@ -249,7 +249,7 @@ class DtzListeningPart2Seeder extends Seeder
                     ]
                 );
 
-                ExerciseStimulus::create([
+                $stimulus = ExerciseStimulus::create([
                     'exercise_id' => $exercise->id,
                     'media_file_id' => $media->id,
                     'type' => 'audio',
@@ -265,6 +265,7 @@ class DtzListeningPart2Seeder extends Seeder
 
                 $question = Question::create([
                     'exercise_id' => $exercise->id,
+                    'exercise_stimulus_id' => $stimulus->id,
                     'type' => 'multiple_choice',
                     'prompt' => $task['question'],
                     'points' => 1,

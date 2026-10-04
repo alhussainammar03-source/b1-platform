@@ -33,14 +33,14 @@ class ExerciseResource extends JsonResource
                         'content' => $stimulus->content,
                         'media_file_id' => $stimulus->media_file_id,
 
-                    'media' => $stimulus->mediaFile ? [
-                        'id' => $stimulus->mediaFile->id,
-                        'type' => $stimulus->mediaFile->type,
-                        'duration_seconds' => $stimulus->mediaFile->duration_seconds,
-                        'url' => route('api.v1.media.audio', [
-                            'media' => $stimulus->mediaFile->id,
-                        ]),
-                    ] : null,
+                        'media' => $stimulus->mediaFile ? [
+                            'id' => $stimulus->mediaFile->id,
+                            'type' => $stimulus->mediaFile->type,
+                            'duration_seconds' => $stimulus->mediaFile->duration_seconds,
+                            'url' => route('api.v1.media.audio', [
+                                'media' => $stimulus->mediaFile->id,
+                            ]),
+                        ] : null,
 
                         'meta' => $stimulus->meta,
                     ];
@@ -53,6 +53,7 @@ class ExerciseResource extends JsonResource
                 ->map(function ($question) {
                     return [
                         'id' => $question->id,
+                        'exercise_stimulus_id' => $question->exercise_stimulus_id,
                         'type' => $question->type,
                         'prompt' => $question->prompt,
                         'instructions' => $question->instructions,

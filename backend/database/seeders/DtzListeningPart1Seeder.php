@@ -146,8 +146,7 @@ class DtzListeningPart1Seeder extends Seeder
                         ],
                     ]
                 );
-
-                ExerciseStimulus::create([
+                $stimulus = ExerciseStimulus::create([
                     'exercise_id' => $exercise->id,
                     'media_file_id' => $media->id,
                     'type' => 'audio',
@@ -163,6 +162,7 @@ class DtzListeningPart1Seeder extends Seeder
 
                 $question = Question::create([
                     'exercise_id' => $exercise->id,
+                    'exercise_stimulus_id' => $stimulus->id,
                     'type' => 'multiple_choice',
                     'prompt' => $task['question'],
                     'points' => 1,
@@ -171,7 +171,9 @@ class DtzListeningPart1Seeder extends Seeder
                     ],
                     'sort_order' => $index + 1,
                     'is_active' => true,
+
                 ]);
+
 
                 foreach ($task['options'] as $optionIndex => $option) {
                     AnswerOption::create([

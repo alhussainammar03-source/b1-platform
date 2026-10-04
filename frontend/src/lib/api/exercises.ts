@@ -35,6 +35,7 @@ export type ExerciseOption = {
 
 export type ExerciseQuestion = {
   id: number;
+  exercise_stimulus_id: number | null;
   type: string;
   prompt: string;
   instructions: string | null;
@@ -42,13 +43,22 @@ export type ExerciseQuestion = {
   options: ExerciseOption[];
 };
 
+export type ExerciseMedia = {
+  id: number;
+  type: string;
+  duration_seconds: number | null;
+  url: string;
+};
+
+
+
 export type ExerciseStimulus = {
   id: number;
   type: string;
   label: string | null;
   content: string | null;
   media_file_id: number | null;
-  media: unknown | null;
+  media: ExerciseMedia | null;
   meta: unknown | null;
 };
 
