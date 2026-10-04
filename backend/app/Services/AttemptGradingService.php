@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use App\Enums\QuestionType;
+
 class AttemptGradingService
 {
     public function grade(Attempt $attempt, array $answers): array
@@ -29,9 +30,9 @@ class AttemptGradingService
                 422,
                 'This exercise contains questions that require manual or AI grading.'
             );
-        } 
+        }
 
-        
+
         $submittedAnswers = collect($answers);
 
         $this->validateQuestions($questions, $submittedAnswers);
@@ -42,7 +43,7 @@ class AttemptGradingService
             $submittedAnswers
         ) {
             $score = 0.0;
-
+            $answerResults = [];
             $maxScore = (float) $questions->sum(
                 fn($question) => (float) $question->points
             );
@@ -92,6 +93,24 @@ class AttemptGradingService
                         'answered_at' => now(),
                     ]
                 );
+
+
+                $correctOption = $question->answerOptions
+                    ->first(fn($option) => $option->is_active && $option->is_correct);
+
+                $answerResults[] = [
+                    'question_id' => $question->id,
+                    'selected_option_id' => $answerOptionId,
+                    'is_correct' => $isCorrect,
+                    'awarded_points' => $awardedPoints,
+                    'max_points' => (float) $question->points,
+                    'correct_option' => $correctOption
+                        ? [
+                            'id' => $correctOption->id,
+                            'text' => $correctOption->text,
+                        ]
+                        : null,
+                ];
             }
 
             $percentage = $maxScore > 0
@@ -113,6 +132,7 @@ class AttemptGradingService
                 'score' => $attempt->score,
                 'max_score' => $attempt->max_score,
                 'percentage' => $attempt->percentage,
+                'answers' => $answerResults,
             ];
         });
     }

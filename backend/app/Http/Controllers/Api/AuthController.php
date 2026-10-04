@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use App\Models\Language;
+use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
@@ -51,19 +52,21 @@ class AuthController extends Controller
     {
         $credentials = $request->validated();
 
-        $user = User::where('email', $credentials['email'])->first();
-
-        if (!$user || !Hash::check($credentials['password'], $user->password)) {
+        if (! Auth::attempt([
+            'email' => $credentials['email'],
+            'password' => $credentials['password'],
+        ])) {
             return response()->json([
                 'message' => 'Invalid credentials.',
             ], 422);
         }
 
-        $token = $user->createToken('b1-platform')->plainTextToken;
+        $request->session()->regenerate();
+
+        $user = $request->user();
 
         return response()->json([
             'message' => 'Login successful.',
-            'token' => $token,
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -89,7 +92,10 @@ class AuthController extends Controller
 
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()?->delete();
+        Auth::guard('web')->logout();
+
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
 
         return response()->json([
             'message' => 'Logout successful.',

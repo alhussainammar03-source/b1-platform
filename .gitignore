@@ -6,3 +6,6 @@
 .idea/
 .vscode/
 /backend-old/
+/frontend/.env
+/frontend/*.tsbuildinfo
+/schreiben-test.png
