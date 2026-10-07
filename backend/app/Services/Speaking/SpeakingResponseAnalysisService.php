@@ -2,8 +2,13 @@
 
 namespace App\Services\Speaking;
 
+use App\Models\SpeakingSession;
+use App\Services\Speaking\Contracts\SpeakingAiProvider;
+
 class SpeakingResponseAnalysisService
 {
+
+
     public const PART_ONE_TOPICS = [
         'name',
         'age',
@@ -12,6 +17,11 @@ class SpeakingResponseAnalysisService
         'profession',
         'hobbies',
     ];
+
+    public function __construct(
+        private readonly SpeakingAiProvider $aiProvider
+    ) {}
+
 
     public function emptyPartOneAnalysis(): array
     {
@@ -50,5 +60,18 @@ class SpeakingResponseAnalysisService
             'all_required_topics_covered' =>
             count($missingTopics) === 0,
         ];
+    }
+
+
+    public function analyzePartOneText(
+        SpeakingSession $session,
+        string $text
+    ): array {
+        $analysis = $this->aiProvider->analyzePartOneResponse(
+            $session,
+            $text
+        );
+
+        return $this->normalizePartOneAnalysis($analysis);
     }
 }

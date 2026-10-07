@@ -8,8 +8,8 @@ use App\Http\Controllers\Api\AttemptController;
 use App\Http\Controllers\Api\AttemptSubmissionController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\WritingSubmissionController;
-
-
+use App\Http\Controllers\Api\SpeakingSessionController;
+use App\Http\Controllers\Api\SpeakingTurnController;
 
 Route::prefix('v1')->group(function () {
 
@@ -58,6 +58,18 @@ Route::prefix('v1')->group(function () {
         Route::get(
             '/writing/evaluations/{evaluation}',
             [WritingSubmissionController::class, 'showEvaluation']
+        );
+
+
+
+        Route::post(
+            '/speaking/sessions',
+            [SpeakingSessionController::class, 'store']
+        );
+
+        Route::post(
+            '/speaking/sessions/{session}/turns',
+            [SpeakingTurnController::class, 'store']
         );
     });
 
