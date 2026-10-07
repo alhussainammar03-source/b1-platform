@@ -9,6 +9,7 @@ use App\Services\Writing\WritingEvaluationService;
 use App\Services\Writing\OpenAIWritingEvaluationService;
 use App\Services\Speaking\Contracts\SpeakingAiProvider;
 use App\Services\Speaking\Providers\FakeSpeakingAiProvider;
+use App\Services\Speaking\Providers\OpenAiSpeakingProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,7 +32,17 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->singleton(
             SpeakingAiProvider::class,
-            FakeSpeakingAiProvider::class
+            function ($app) {
+                return match (config('services.speaking.ai_provider')) {
+                    'openai' => $app->make(OpenAiSpeakingProvider::class),
+                    'fake' => $app->make(FakeSpeakingAiProvider::class),
+
+                    default => throw new \RuntimeException(
+                        'Unsupported speaking AI provider: '
+                            . config('services.speaking.ai_provider')
+                    ),
+                };
+            }
         );
     }
 

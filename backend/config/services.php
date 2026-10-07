@@ -37,7 +37,16 @@ return [
 
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
+
+        // Schreiben
         'model' => env('OPENAI_MODEL', 'gpt-5.4-mini'),
+
+        // Sprechen
+        'speaking_model' => env('OPENAI_SPEAKING_MODEL'),
+    ],
+
+    'speaking' => [
+        'ai_provider' => env('SPEAKING_AI_PROVIDER', 'fake'),
     ],
 
 ];
