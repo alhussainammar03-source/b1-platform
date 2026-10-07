@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
@@ -8,8 +8,9 @@ import {
 } from '../lib/api/exercises';
 
 import {
-  createTextWritingSubmission,
+  createTextWritingSubmission,createHandwrittenWritingSubmission,
   startWritingEvaluation,
+  confirmHandwrittenWritingSubmission,
   getWritingEvaluation,
   getLatestWritingSubmission,
   type WritingSubmission,
@@ -25,6 +26,38 @@ export default function SchreibenPage() {
     'de';
 
   const [text, setText] = useState('');
+const [inputMethod, setInputMethod] =
+  useState<'text' | 'handwritten_image'>(
+    'text',
+  );
+
+const [handwrittenImage, setHandwrittenImage] =
+  useState<File | null>(null);
+const [isStartingNewAttempt, setIsStartingNewAttempt] =
+  useState(false);
+const [
+  confirmedHandwritingText,
+  setConfirmedHandwritingText,
+] = useState('');
+
+const [
+  isUploadingHandwriting,
+  setIsUploadingHandwriting,
+] = useState(false);
+const [
+  isConfirmingHandwriting,
+  setIsConfirmingHandwriting,
+] = useState(false);
+
+const [
+  confirmHandwritingError,
+  setConfirmHandwritingError,
+] = useState<string | null>(null);
+
+const [
+  handwritingError,
+  setHandwritingError,
+] = useState<string | null>(null);
 
   const [submission, setSubmission] =
     useState<WritingSubmission | null>(null);
@@ -89,26 +122,57 @@ export default function SchreibenPage() {
   // --------------------------------
 
   const latestWritingQuery = useQuery({
-    queryKey: [
-      'latest-writing-submission',
-      exerciseId,
-    ],
+  queryKey: [
+    'latest-writing-submission',
+    exerciseId,
+  ],
 
-    queryFn: () =>
-      getLatestWritingSubmission(
-        exerciseId!,
-      ),
+  queryFn: () =>
+    getLatestWritingSubmission(
+      exerciseId!,
+    ),
 
-    enabled: exerciseId !== null,
-  });
+  enabled: exerciseId !== null,
+
+  refetchInterval: (query) => {
+    const latest = query.state.data;
+
+    if (
+      latest?.submission.status ===
+      'extracting'
+    ) {
+      return 2000;
+    }
+
+    return false;
+  },
+});
 
   const latestResult =
     latestWritingQuery.data ?? null;
 
-  const activeSubmission =
-    submission ??
-    latestResult?.submission ??
-    null;
+ const activeSubmission =
+  isStartingNewAttempt
+    ? null
+    : latestResult?.submission ??
+      submission ??
+      null;
+useEffect(() => {
+  if (
+    activeSubmission?.input_method ===
+      'handwritten_image' &&
+    activeSubmission.status ===
+      'awaiting_confirmation'
+  ) {
+    setConfirmedHandwritingText(
+      activeSubmission.extracted_text ?? '',
+    );
+  }
+}, [
+  activeSubmission?.id,
+  activeSubmission?.status,
+  activeSubmission?.extracted_text,
+]);
 
   const storedEvaluation =
     latestResult?.evaluation ?? null;
@@ -264,9 +328,9 @@ export default function SchreibenPage() {
           text.trim(),
         );
 
-      setSubmission(
-        createdSubmission,
-      );
+     setSubmission(createdSubmission);
+setIsStartingNewAttempt(false);
+await latestWritingQuery.refetch();
     } catch {
       setSubmitError(
         'Die Schreibantwort konnte nicht gespeichert werden.',
@@ -279,6 +343,79 @@ export default function SchreibenPage() {
   // --------------------------------
   // KI-Auswertung starten
   // --------------------------------
+const handleHandwritingUpload = async () => {
+  if (!question || !handwrittenImage) {
+    return;
+  }
+
+  setIsUploadingHandwriting(true);
+  setHandwritingError(null);
+
+  try {
+    const createdSubmission =
+      await createHandwrittenWritingSubmission(
+        question.id,
+        handwrittenImage,
+      );
+
+    setSubmission(createdSubmission);
+    setIsStartingNewAttempt(false);
+  } catch {
+    setHandwritingError(
+      'Das Bild konnte nicht hochgeladen werden.',
+    );
+  } finally {
+    setIsUploadingHandwriting(false);
+  }
+};
+
+
+
+
+
+
+const handleConfirmHandwriting = async () => {
+  if (
+    !activeSubmission ||
+    activeSubmission.status !==
+      'awaiting_confirmation'
+  ) {
+    return;
+  }
+
+  const textToConfirm =
+    confirmedHandwritingText.trim() ||
+    activeSubmission.extracted_text?.trim() ||
+    '';
+
+  if (!textToConfirm) {
+    setConfirmHandwritingError(
+      'Bitte prüfen Sie zuerst den erkannten Text.',
+    );
+    return;
+  }
+
+  setIsConfirmingHandwriting(true);
+  setConfirmHandwritingError(null);
+
+  try {
+    const confirmedSubmission =
+      await confirmHandwrittenWritingSubmission(
+        activeSubmission.id,
+        textToConfirm,
+      );
+
+    setSubmission(confirmedSubmission);
+
+    await latestWritingQuery.refetch();
+  } catch {
+    setConfirmHandwritingError(
+      'Der erkannte Text konnte nicht bestätigt werden.',
+    );
+  } finally {
+    setIsConfirmingHandwriting(false);
+  }
+};
 
   const handleStartEvaluation =
     async () => {
@@ -390,47 +527,165 @@ export default function SchreibenPage() {
 
           <div>
             <h2>Ihre Antwort</h2>
+{!activeSubmission && (
+  <div>
+    <p>
+      Wie möchten Sie Ihre Antwort abgeben?
+    </p>
 
-            <textarea
-              value={displayedText}
-              onChange={(event) =>
-                setText(
-                  event.target.value,
-                )
-              }
-              placeholder="Schreiben Sie hier Ihre E-Mail..."
-              rows={12}
-              disabled={
-                activeSubmission !== null
-              }
-              lang="de"
-              dir="ltr"
-            />
+    <button
+      type="button"
+      onClick={() => setInputMethod('text')}
+      disabled={inputMethod === 'text'}
+    >
+      Am Computer schreiben
+    </button>
 
-            <p>
-              {displayedText.trim()
-                ? displayedText
-                    .trim()
-                    .split(/\s+/)
-                    .length
-                : 0}{' '}
-              Wörter
-            </p>
+    <button
+      type="button"
+      onClick={() =>
+        setInputMethod('handwritten_image')
+      }
+      disabled={
+        inputMethod === 'handwritten_image'
+      }
+    >
+      Handschrift hochladen
+    </button>
+  </div>
+)}
+           
 
-            {!activeSubmission && (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={
-                  !text.trim() ||
-                  isSubmitting
-                }
-              >
-                {isSubmitting
-                  ? 'Antwort wird gespeichert...'
-                  : 'Antwort abgeben'}
-              </button>
-            )}
+{inputMethod === 'text' &&
+  !activeSubmission && (
+  <>
+    <textarea
+      value={displayedText}
+      onChange={(event) =>
+        setText(event.target.value)
+      }
+      placeholder="Schreiben Sie hier Ihre E-Mail..."
+      rows={12}
+      disabled={activeSubmission !== null}
+      lang="de"
+      dir="ltr"
+    />
+
+    <p>
+      {displayedText.trim()
+        ? displayedText
+            .trim()
+            .split(/\s+/)
+            .length
+        : 0}{' '}
+      Wörter
+    </p>
+
+    {!activeSubmission && (
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={
+          !text.trim() ||
+          isSubmitting
+        }
+      >
+        {isSubmitting
+          ? 'Antwort wird gespeichert...'
+          : 'Antwort abgeben'}
+      </button>
+    )}
+  </>
+)}
+
+
+
+
+{inputMethod === 'handwritten_image' &&
+  !activeSubmission && (
+    <div>
+      <p>
+        Laden Sie ein Foto Ihrer handschriftlichen
+        Antwort hoch.
+      </p>
+
+
+<div>
+  <label>
+    📷 Foto aufnehmen
+    <input
+      type="file"
+      accept="image/*"
+      capture="environment"
+      onChange={(event) => {
+        const file =
+          event.target.files?.[0] ?? null;
+
+        setHandwrittenImage(file);
+      }}
+    />
+  </label>
+</div>
+
+<p>oder</p>
+     <div>
+  <label>
+    🖼️ Foto auswählen
+    <input
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      onChange={(event) => {
+        const file =
+          event.target.files?.[0] ?? null;
+
+        setHandwrittenImage(file);
+      }}
+    />
+  </label>
+</div>
+
+      {handwrittenImage && (
+        <div>
+          <p>
+            Ausgewählte Datei:{' '}
+            <strong>
+              {handwrittenImage.name}
+            </strong>
+          </p>
+
+          <p>
+            Größe:{' '}
+            {(
+              handwrittenImage.size /
+              1024 /
+              1024
+            ).toFixed(2)}{' '}
+            MB
+          </p>
+        </div>
+      )}
+
+{handwrittenImage && (
+  <button
+    type="button"
+    onClick={handleHandwritingUpload}
+    disabled={isUploadingHandwriting}
+  >
+    {isUploadingHandwriting
+      ? 'Bild wird hochgeladen...'
+      : 'Bild hochladen'}
+  </button>
+)}
+
+{handwritingError && (
+  <p>{handwritingError}</p>
+)}
+
+    </div>
+  )}
+
+
+
 
             {submitError && (
               <p>{submitError}</p>
@@ -441,6 +696,56 @@ export default function SchreibenPage() {
 
           {activeSubmission && (
             <div>
+
+              {activeSubmission.input_method ===
+  'handwritten_image' &&
+  activeSubmission.status === 'extracting' && (
+    <p>
+      Handschrift wird erkannt...
+    </p>
+  )}
+
+  {activeSubmission.input_method ===
+  'handwritten_image' &&
+  activeSubmission.status ===
+    'awaiting_confirmation' && (
+    <div>
+      <h3>Erkannter Text</h3>
+
+      <p>
+        Bitte prüfen und korrigieren Sie den
+        erkannten Text.
+      </p>
+
+      <textarea
+        value={confirmedHandwritingText}
+        
+        onChange={(event) =>
+          setConfirmedHandwritingText(
+            event.target.value,
+          )
+        }
+        rows={12}
+        lang="de"
+        dir="ltr"
+      />
+
+
+      <button
+  type="button"
+  onClick={handleConfirmHandwriting}
+  disabled={isConfirmingHandwriting}
+>
+  {isConfirmingHandwriting
+    ? 'Text wird bestätigt...'
+    : 'Text bestätigen'}
+</button>
+
+{confirmHandwritingError && (
+  <p>{confirmHandwritingError}</p>
+)}
+    </div>
+  )}
               <p>
                 ✓ Ihre Antwort wurde
                 gespeichert.
@@ -523,11 +828,11 @@ export default function SchreibenPage() {
           )}
 
           {/* KI Ergebnis */}
-
-          {evaluationResult?.status ===
-            'evaluated' && (
-            <div>
-              <h2>KI-Auswertung</h2>
+{evaluationResult?.status ===
+  'evaluated' &&
+  !isStartingNewAttempt && (
+    <div>
+      <h2>KI-Auswertung</h2>
 
               {/* Feedback */}
 
@@ -602,7 +907,24 @@ export default function SchreibenPage() {
                   )}
                 </div>
               )}
-
+{activeSubmission?.status === 'evaluated' &&
+  !isStartingNewAttempt && (
+    <button
+      type="button"
+      onClick={() => {
+        setIsStartingNewAttempt(true);
+        setSubmission(null);
+        setEvaluation(null);
+        setConfirmedHandwritingText('');
+        setHandwrittenImage(null);
+        setHandwritingError(null);
+        setConfirmHandwritingError(null);
+        setInputMethod('text');
+      }}
+    >
+      🔄 Neue Antwort schreiben
+    </button>
+  )}
 {/* Fehler und Korrekturen */}
 
 {evaluationResult.errors &&

@@ -124,11 +124,14 @@ class WritingSubmissionController extends Controller
             'message' => 'Der erkannte Text wurde bestätigt.',
             'data' => [
                 'id' => $submission->id,
+                'exercise_id' => $submission->exercise_id,
+                'question_id' => $submission->question_id,
                 'input_method' => $submission->input_method,
+                'status' => $submission->status,
+                'original_text' => $submission->original_text,
                 'extracted_text' => $submission->extracted_text,
                 'confirmed_text' => $submission->confirmed_text,
-                'status' => $submission->status,
-                'confirmed_at' => $submission->confirmed_at,
+                'created_at' => $submission->created_at?->toISOString(),
             ],
         ]);
     }

@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use App\Models\WritingSubmission;
 
 class WritingSubmissionTest extends TestCase
 {
@@ -167,5 +168,159 @@ class WritingSubmissionTest extends TestCase
         );
 
         Queue::assertPushed(ExtractHandwritingJob::class, 1);
+    }
+
+    public function test_user_can_confirm_extracted_handwriting_text(): void
+    {
+        $user = User::factory()->create();
+
+        $examFormat = ExamFormat::create([
+            'key' => 'dtz-handwriting-confirm-test',
+            'name' => ['de' => 'DTZ'],
+            'level' => 'A2-B1',
+            'is_active' => true,
+        ]);
+
+        $examSection = ExamSection::create([
+            'key' => 'writing-confirm-test',
+            'name' => ['de' => 'Schreiben'],
+            'is_active' => true,
+        ]);
+
+        $exercise = Exercise::create([
+            'exam_format_id' => $examFormat->id,
+            'exam_section_id' => $examSection->id,
+            'key' => 'writing-confirm-exercise-test',
+            'type' => 'writing_text',
+            'title' => ['de' => 'E-Mail schreiben'],
+            'instructions' => 'Schreiben Sie eine E-Mail.',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        $question = Question::create([
+            'exercise_id' => $exercise->id,
+            'type' => 'writing_text',
+            'prompt' => 'Schreiben Sie eine E-Mail.',
+            'points' => 0,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $submission = WritingSubmission::create([
+            'user_id' => $user->id,
+            'exercise_id' => $exercise->id,
+            'question_id' => $question->id,
+            'input_method' => 'handwritten_image',
+            'image_disk' => 'local',
+            'image_path' => 'writing-submissions/test/handwriting.jpg',
+            'extracted_text' => 'Sehr geehrte Herr Berger',
+            'status' => 'awaiting_confirmation',
+        ]);
+
+        $confirmedText =
+            'Sehr geehrte Frau Berger, leider bin ich krank.';
+
+        $response = $this
+            ->actingAs($user)
+            ->patchJson(
+                "/api/v1/writing/submissions/{$submission->id}/confirm",
+                [
+                    'confirmed_text' => $confirmedText,
+                ]
+            );
+
+        $response
+            ->assertOk()
+            ->assertJsonPath(
+                'data.status',
+                'ready_for_evaluation'
+            )
+            ->assertJsonPath(
+                'data.confirmed_text',
+                $confirmedText
+            );
+
+        $this->assertDatabaseHas('writing_submissions', [
+            'id' => $submission->id,
+            'user_id' => $user->id,
+            'status' => 'ready_for_evaluation',
+            'confirmed_text' => $confirmedText,
+        ]);
+
+        $submission->refresh();
+
+        $this->assertNotNull(
+            $submission->confirmed_at
+        );
+    }
+
+
+    public function test_user_cannot_confirm_another_users_handwriting_submission(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+
+        $examFormat = ExamFormat::create([
+            'key' => 'dtz-handwriting-security-test',
+            'name' => ['de' => 'DTZ'],
+            'level' => 'A2-B1',
+            'is_active' => true,
+        ]);
+
+        $examSection = ExamSection::create([
+            'key' => 'writing-security-test',
+            'name' => ['de' => 'Schreiben'],
+            'is_active' => true,
+        ]);
+
+        $exercise = Exercise::create([
+            'exam_format_id' => $examFormat->id,
+            'exam_section_id' => $examSection->id,
+            'key' => 'writing-security-exercise-test',
+            'type' => 'writing_text',
+            'title' => ['de' => 'E-Mail schreiben'],
+            'instructions' => 'Schreiben Sie eine E-Mail.',
+            'status' => 'published',
+            'published_at' => now(),
+        ]);
+
+        $question = Question::create([
+            'exercise_id' => $exercise->id,
+            'type' => 'writing_text',
+            'prompt' => 'Schreiben Sie eine E-Mail.',
+            'points' => 0,
+            'sort_order' => 1,
+            'is_active' => true,
+        ]);
+
+        $submission = WritingSubmission::create([
+            'user_id' => $owner->id,
+            'exercise_id' => $exercise->id,
+            'question_id' => $question->id,
+            'input_method' => 'handwritten_image',
+            'image_disk' => 'local',
+            'image_path' => 'writing-submissions/test/security.jpg',
+            'extracted_text' => 'Test',
+            'status' => 'awaiting_confirmation',
+        ]);
+
+        $response = $this
+            ->actingAs($otherUser)
+            ->patchJson(
+                "/api/v1/writing/submissions/{$submission->id}/confirm",
+                [
+                    'confirmed_text' => 'Manipulierter Text',
+                ]
+            );
+
+        $response->assertForbidden();
+
+        $this->assertDatabaseHas('writing_submissions', [
+            'id' => $submission->id,
+            'user_id' => $owner->id,
+            'status' => 'awaiting_confirmation',
+            'confirmed_text' => null,
+        ]);
     }
 }

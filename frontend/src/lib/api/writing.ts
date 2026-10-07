@@ -124,6 +124,53 @@ export async function createTextWritingSubmission(
   return response.data.data;
 }
 
+
+export async function createHandwrittenWritingSubmission(
+  questionId: number,
+  image: File,
+): Promise<WritingSubmission> {
+  const formData = new FormData();
+
+  formData.append(
+    'question_id',
+    String(questionId),
+  );
+
+  formData.append(
+    'input_method',
+    'handwritten_image',
+  );
+
+  formData.append(
+    'image',
+    image,
+  );
+
+  const response =
+    await apiClient.post<WritingSubmissionResponse>(
+      '/writing/submissions',
+      formData,
+    );
+
+  return response.data.data;
+}
+
+
+export async function confirmHandwrittenWritingSubmission(
+  submissionId: number,
+  confirmedText: string,
+): Promise<WritingSubmission> {
+  const response =
+    await apiClient.patch<WritingSubmissionResponse>(
+      `/writing/submissions/${submissionId}/confirm`,
+      {
+        confirmed_text: confirmedText,
+      },
+    );
+
+  return response.data.data;
+}
+
 // -------------------------
 // Start AI Evaluation
 // -------------------------
