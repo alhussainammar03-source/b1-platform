@@ -14,6 +14,7 @@ use App\Jobs\EvaluateWritingJob;
 use App\Models\WritingEvaluation;
 use Illuminate\Http\Request;
 use App\Jobs\ExtractHandwritingJob;
+use App\Models\Exercise;
 
 class WritingSubmissionController extends Controller
 {
@@ -211,6 +212,74 @@ class WritingSubmissionController extends Controller
                 'status' => $evaluation->status,
             ],
         ], 202);
+    }
+
+    public function latest(
+        Request $request,
+        Exercise $exercise
+    ): JsonResponse {
+        $submission = WritingSubmission::query()
+            ->where('user_id', $request->user()->id)
+            ->where('exercise_id', $exercise->id)
+            ->latest('id')
+            ->first();
+
+        if (! $submission) {
+            return response()->json([
+                'data' => null,
+            ]);
+        }
+
+        $evaluation = WritingEvaluation::query()
+            ->where(
+                'writing_submission_id',
+                $submission->id
+            )
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'submission' => [
+                    'id' => $submission->id,
+                    'exercise_id' => $submission->exercise_id,
+                    'question_id' => $submission->question_id,
+                    'input_method' => $submission->input_method,
+                    'status' => $submission->status,
+                    'original_text' => $submission->original_text,
+                    'extracted_text' => $submission->extracted_text,
+                    'confirmed_text' => $submission->confirmed_text,
+                    'created_at' => $submission->created_at?->toISOString(),
+                ],
+
+                'evaluation' => $evaluation
+                    ? [
+                        'id' => $evaluation->id,
+                        'writing_submission_id' =>
+                        $evaluation->writing_submission_id,
+                        'feedback_language' =>
+                        $evaluation->feedback_language,
+                        'status' => $evaluation->status,
+                        'criteria' => $evaluation->criteria,
+                        'corrected_text' =>
+                        $evaluation->corrected_text,
+                        'improved_example' =>
+                        $evaluation->improved_example,
+                        'feedback_de' =>
+                        $evaluation->feedback_de,
+                        'feedback_translated' =>
+                        $evaluation->feedback_translated,
+                        'errors' => $evaluation->errors,
+                        'missing_required_points' =>
+                        $evaluation->missing_required_points,
+                        'focus_points' =>
+                        $evaluation->focus_points,
+                        'evaluated_at' =>
+                        $evaluation->evaluated_at?->toISOString(),
+                    ]
+                    : null,
+            ],
+        ]);
     }
 
 

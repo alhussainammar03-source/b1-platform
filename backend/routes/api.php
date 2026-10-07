@@ -51,7 +51,10 @@ Route::prefix('v1')->group(function () {
 
         );
 
-
+        Route::get(
+            '/writing/exercises/{exercise}/latest',
+            [WritingSubmissionController::class, 'latest']
+        );
         Route::get(
             '/writing/evaluations/{evaluation}',
             [WritingSubmissionController::class, 'showEvaluation']

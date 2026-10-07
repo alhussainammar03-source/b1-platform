@@ -11,6 +11,7 @@ import {
   createTextWritingSubmission,
   startWritingEvaluation,
   getWritingEvaluation,
+  getLatestWritingSubmission,
   type WritingSubmission,
   type WritingEvaluationStart,
 } from '../lib/api/writing';
@@ -49,9 +50,9 @@ export default function SchreibenPage() {
     setEvaluationError,
   ] = useState<string | null>(null);
 
-  // -------------------------
-  // Übungen laden
-  // -------------------------
+  // --------------------------------
+  // Schreibübungen laden
+  // --------------------------------
 
   const exercisesQuery = useQuery({
     queryKey: [
@@ -80,9 +81,41 @@ export default function SchreibenPage() {
       firstExerciseKey !== null,
   });
 
-  // -------------------------
-  // KI-Auswertung pollen
-  // -------------------------
+  const exerciseId =
+    exerciseQuery.data?.id ?? null;
+
+  // --------------------------------
+  // Letzte Schreibantwort laden
+  // --------------------------------
+
+  const latestWritingQuery = useQuery({
+    queryKey: [
+      'latest-writing-submission',
+      exerciseId,
+    ],
+
+    queryFn: () =>
+      getLatestWritingSubmission(
+        exerciseId!,
+      ),
+
+    enabled: exerciseId !== null,
+  });
+
+  const latestResult =
+    latestWritingQuery.data ?? null;
+
+  const activeSubmission =
+    submission ??
+    latestResult?.submission ??
+    null;
+
+  const storedEvaluation =
+    latestResult?.evaluation ?? null;
+
+  // --------------------------------
+  // Neue laufende KI-Auswertung pollen
+  // --------------------------------
 
   const evaluationQuery = useQuery({
     queryKey: [
@@ -112,9 +145,18 @@ export default function SchreibenPage() {
     },
   });
 
-  // -------------------------
+  // Neue Evaluation hat Vorrang.
+  // Nach Refresh verwenden wir die
+  // gespeicherte Evaluation vom Backend.
+
+  const evaluationResult =
+    evaluationQuery.data ??
+    storedEvaluation ??
+    null;
+
+  // --------------------------------
   // Loading / Fehler
-  // -------------------------
+  // --------------------------------
 
   if (exercisesQuery.isLoading) {
     return (
@@ -162,15 +204,47 @@ export default function SchreibenPage() {
     );
   }
 
+  if (latestWritingQuery.isLoading) {
+    return (
+      <p>
+        Letzte Schreibantwort wird
+        geladen...
+      </p>
+    );
+  }
+
+  if (latestWritingQuery.isError) {
+    return (
+      <p>
+        Die letzte Schreibantwort
+        konnte nicht geladen werden.
+      </p>
+    );
+  }
+
   const exercise =
     exerciseQuery.data;
 
   const question =
     exercise.questions[0];
 
-  // -------------------------
+  // --------------------------------
+  // Angezeigter Antworttext
+  // --------------------------------
+
+  const savedText =
+    activeSubmission?.confirmed_text ??
+    activeSubmission?.original_text ??
+    '';
+
+  const displayedText =
+    activeSubmission
+      ? savedText
+      : text;
+
+  // --------------------------------
   // Antwort speichern
-  // -------------------------
+  // --------------------------------
 
   const handleSubmit = async () => {
     if (
@@ -202,13 +276,13 @@ export default function SchreibenPage() {
     }
   };
 
-  // -------------------------
+  // --------------------------------
   // KI-Auswertung starten
-  // -------------------------
+  // --------------------------------
 
   const handleStartEvaluation =
     async () => {
-      if (!submission) {
+      if (!activeSubmission) {
         return;
       }
 
@@ -218,7 +292,7 @@ export default function SchreibenPage() {
       try {
         const startedEvaluation =
           await startWritingEvaluation(
-            submission.id,
+            activeSubmission.id,
             locale,
           );
 
@@ -236,18 +310,23 @@ export default function SchreibenPage() {
       }
     };
 
-  const evaluationResult =
-    evaluationQuery.data;
+  // --------------------------------
+  // Feedback
+  // --------------------------------
 
   const feedback =
-    locale === 'de'
-      ? evaluationResult?.feedback_de
-      : evaluationResult
-          ?.feedback_translated;
+    evaluationResult
+      ? evaluationResult.feedback_language ===
+        'de'
+        ? evaluationResult.feedback_de
+        : evaluationResult
+            .feedback_translated ??
+          evaluationResult.feedback_de
+      : null;
 
-  // -------------------------
+  // --------------------------------
   // Render
-  // -------------------------
+  // --------------------------------
 
   return (
     <section className="section-page">
@@ -269,7 +348,7 @@ export default function SchreibenPage() {
         </p>
       )}
 
-      {/* Schreibaufgabe */}
+      {/* Aufgabenmaterial */}
 
       {exercise.stimuli.map(
         (stimulus) => (
@@ -289,7 +368,7 @@ export default function SchreibenPage() {
         ),
       )}
 
-      {/* Frage */}
+      {/* Aufgabe */}
 
       {question && (
         <div>
@@ -313,7 +392,7 @@ export default function SchreibenPage() {
             <h2>Ihre Antwort</h2>
 
             <textarea
-              value={text}
+              value={displayedText}
               onChange={(event) =>
                 setText(
                   event.target.value,
@@ -322,15 +401,15 @@ export default function SchreibenPage() {
               placeholder="Schreiben Sie hier Ihre E-Mail..."
               rows={12}
               disabled={
-                submission !== null
+                activeSubmission !== null
               }
               lang="de"
               dir="ltr"
             />
 
             <p>
-              {text.trim()
-                ? text
+              {displayedText.trim()
+                ? displayedText
                     .trim()
                     .split(/\s+/)
                     .length
@@ -338,28 +417,29 @@ export default function SchreibenPage() {
               Wörter
             </p>
 
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={
-                !text.trim() ||
-                isSubmitting ||
-                submission !== null
-              }
-            >
-              {isSubmitting
-                ? 'Antwort wird gespeichert...'
-                : 'Antwort abgeben'}
-            </button>
+            {!activeSubmission && (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={
+                  !text.trim() ||
+                  isSubmitting
+                }
+              >
+                {isSubmitting
+                  ? 'Antwort wird gespeichert...'
+                  : 'Antwort abgeben'}
+              </button>
+            )}
 
             {submitError && (
               <p>{submitError}</p>
             )}
           </div>
 
-          {/* Submission */}
+          {/* Gespeicherte Antwort */}
 
-          {submission && (
+          {activeSubmission && (
             <div>
               <p>
                 ✓ Ihre Antwort wurde
@@ -368,11 +448,14 @@ export default function SchreibenPage() {
 
               <p>
                 Status:{' '}
-                {submission.status}
+                {
+                  activeSubmission.status
+                }
               </p>
 
-              {submission.status ===
+              {activeSubmission.status ===
                 'ready_for_evaluation' &&
+                !evaluationResult &&
                 !evaluation && (
                   <button
                     type="button"
@@ -397,31 +480,32 @@ export default function SchreibenPage() {
             </div>
           )}
 
-          {/* Evaluation gestartet */}
+          {/* Neue KI-Auswertung */}
 
-          {evaluation && (
-            <div>
-              <p>
-                KI-Bewertung wurde
-                gestartet.
-              </p>
+          {evaluation &&
+            !evaluationResult && (
+              <div>
+                <p>
+                  KI-Bewertung wurde
+                  gestartet.
+                </p>
 
-              {!evaluationResult && (
                 <p>
                   Status:{' '}
                   {evaluation.status}
                 </p>
-              )}
-            </div>
-          )}
+              </div>
+            )}
 
-          {/* Evaluation Status */}
+          {/* Laufender Status */}
 
           {evaluationResult &&
             evaluationResult.status !==
-              'evaluated' && (
+              'evaluated' &&
+            evaluationResult.status !==
+              'failed' && (
               <p>
-                Status:{' '}
+                KI-Status:{' '}
                 {
                   evaluationResult.status
                 }
@@ -445,7 +529,7 @@ export default function SchreibenPage() {
             <div>
               <h2>KI-Auswertung</h2>
 
-              {/* Feedback in UI-Sprache */}
+              {/* Feedback */}
 
               {feedback && (
                 <div>
@@ -457,7 +541,173 @@ export default function SchreibenPage() {
                 </div>
               )}
 
-              {/* Korrigierter deutscher Text */}
+              {/* Bewertungskriterien */}
+
+              {evaluationResult.criteria && (
+                <div>
+                  <h3>
+                    Bewertungskriterien
+                  </h3>
+
+                  {Object.entries(
+                    evaluationResult.criteria,
+                  ).map(
+                    ([
+                      key,
+                      criterion,
+                    ]) => {
+                      if (!criterion) {
+                        return null;
+                      }
+
+                      const criterionTitles: Record<
+                        string,
+                        string
+                      > = {
+                        task_completion:
+                          'Aufgabenerfüllung',
+                        grammar:
+                          'Grammatik',
+                        spelling:
+                          'Rechtschreibung',
+                        vocabulary:
+                          'Wortschatz',
+                        organization:
+                          'Aufbau',
+                      };
+
+                      const criterionFeedback =
+                        evaluationResult.feedback_language ===
+                        'de'
+                          ? criterion.feedback_de
+                          : criterion.feedback_translated ??
+                            criterion.feedback_de;
+
+                      return (
+                        <div key={key}>
+                          <h4>
+                            {criterionTitles[
+                              key
+                            ] ?? key}
+                          </h4>
+
+                          <p>
+                            {
+                              criterionFeedback
+                            }
+                          </p>
+                        </div>
+                      );
+                    },
+                  )}
+                </div>
+              )}
+
+{/* Fehler und Korrekturen */}
+
+{evaluationResult.errors &&
+  evaluationResult.errors.length > 0 && (
+    <div>
+      <h3>Fehler & Korrekturen</h3>
+
+      {evaluationResult.errors.map(
+        (error, index) => {
+          const explanation =
+            evaluationResult.feedback_language ===
+            'de'
+              ? error.explanation_de
+              : error.explanation_translated ??
+                error.explanation_de;
+
+          return (
+            <div
+              key={`${error.original}-${index}`}
+            >
+              <p>
+                <strong>Fehler:</strong>
+              </p>
+
+              <p
+                lang="de"
+                dir="ltr"
+                style={{
+                  textAlign: 'left',
+                }}
+              >
+                ❌ {error.original}
+              </p>
+
+              <p>
+                <strong>Korrektur:</strong>
+              </p>
+
+              <p
+                lang="de"
+                dir="ltr"
+                style={{
+                  textAlign: 'left',
+                }}
+              >
+                ✓ {error.correction}
+              </p>
+
+              <p>
+                <strong>Erklärung:</strong>{' '}
+                {explanation}
+              </p>
+            </div>
+          );
+        },
+      )}
+    </div>
+  )}
+
+  {/* Fehlende Aufgabenpunkte */}
+
+{evaluationResult.missing_required_points &&
+  evaluationResult.missing_required_points.length > 0 && (
+    <div>
+      <h3>Fehlende Aufgabenpunkte</h3>
+
+      <ul>
+        {evaluationResult.missing_required_points.map(
+          (point, index) => (
+            <li key={`${point}-${index}`}>
+              {point}
+            </li>
+          ),
+        )}
+      </ul>
+    </div>
+  )}
+
+{/* Lernfokus */}
+
+{evaluationResult.focus_points &&
+  evaluationResult.focus_points.length > 0 && (
+    <div>
+      <h3>Lernfokus</h3>
+
+      <ul>
+        {evaluationResult.focus_points.map(
+          (point, index) => {
+            const focusText =
+              evaluationResult.feedback_language === 'de'
+                ? point.text_de
+                : point.text_translated ??
+                  point.text_de;
+
+            return (
+              <li key={index}>
+                {focusText}
+              </li>
+            );
+          },
+        )}
+      </ul>
+    </div>
+  )}
+              {/* Korrigierter Text */}
 
               {evaluationResult.corrected_text && (
                 <div>
